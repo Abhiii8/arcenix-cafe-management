@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Café Management System</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<style>
+    body { font-family: 'Poppins', sans-serif; }
+    .print-only { display: none; }
+    @media print {
+        .no-print { display: none !important; }
+        .print-only { display: block; }
+    }
+</style>
+<body class="bg-gray-100">
+    <div id="app" class="min-h-screen">
+        <nav class="bg-teal-600 text-white p-4 no-print">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-2xl font-bold">Café Manager</h1>
+                <div class="space-x-4">
+                    <button @click="currentView = 'tables'" class="hover:bg-teal-700 px-3 py-2 rounded">Tables</button>
+                    <button @click="currentView = 'menu'" class="hover:bg-teal-700 px-3 py-2 rounded">Menu</button>
+                    <button @click="currentView = 'staff'" class="hover:bg-teal-700 px-3 py-2 rounded">Staff</button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mx-auto p-4">
+            <!-- Tables View -->
+            <div v-if="currentView === 'tables'" class="no-print">
+                <div class="flex justify-between mb-4">
+                    <h2 class="text-2xl font-bold">Tables</h2>
+                    <button @click="addTable" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700">
+                        Add Table
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div v-for="table in tables" :key="table.id" class="bg-white p-4 rounded-lg shadow">
+                        <h3 class="text-xl font-bold mb-2">Table {{table.id}}</h3>
+                        <div class="mb-2">Status: {{table.status}}</div>
+                        <button @click="openTableOrder(table)" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700 w-full">
+                            Manage Order
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Menu View -->
+            <div v-if="currentView === 'menu'" class="no-print">
+                <div class="flex justify-between mb-4">
+                    <h2 class="text-2xl font-bold">Menu</h2>
+                    <button @click="showAddMenuItem = true" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700">
+                        Add Item
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div v-for="item in menu" :key="item.id" class="bg-white p-4 rounded-lg shadow">
+                        <h3 class="text-xl font-bold">{{item.name}}</h3>
+                        <p class="text-gray-600">₹{{item.price}}</p>
+                        <div class="flex justify-end mt-2 space-x-2">
+                            <button @click="editMenuItem(item)" class="bg-blue-500 text-white px-3 py-1 rounded">Edit</button>
+                            <button @click="deleteMenuItem(item)" class="bg-red-500 text-white px-3 py-1 rounded">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Staff View -->
+            <div v-if="currentView === 'staff'" class="no-print">
+                <div class="flex justify-between mb-4">
+                    <h2 class="text-2xl font-bold">Staff</h2>
+                    <button @click="showAddStaff = true" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700">
+                        Add Staff
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div v-for="member in staff" :key="member.id" class="bg-white p-4 rounded-lg shadow">
+                        <h3 class="text-xl font-bold">{{member.name}}</h3>
+                        <p class="text-gray-600">{{member.role}}</p>
+                        <div class="flex justify-end mt-2 space-x-2">
+                            <button @click="editStaff(member)" class="bg-blue-500 text-white px-3 py-1 rounded">Edit</button>
+                            <button @click="deleteStaff(member)" class="bg-red-500 text-white px-3 py-1 rounded">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Order Modal -->
+            <div v-if="selectedTable" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center no-print">
+                <div class="bg-white p-6 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <h2 class="text-2xl font-bold mb-4">Table {{selectedTable.id}} Order</h2>
+                    <div class="mb-4">
+                        <h3 class="font-bold mb-2">Add Items</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div v-for="item in menu" :key="item.id">
+                                <button @click="addToOrder(item)" class="w-full bg-gray-100 p-2 rounded hover:bg-gray-200">
+                                    {{item.name}} - ₹{{item.price}}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <h3 class="font-bold mb-2">Current Order</h3>
+                        <div v-for="item in selectedTable.order" :key="item.id" class="flex justify-between items-center mb-2">
+                            <span>{{item.name}} x {{item.quantity}}</span>
+                            <div>
+                                <span class="mr-2">₹{{item.price * item.quantity}}</span>
+                                <button @click="removeFromOrder(item)" class="text-red-500">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="font-bold text-xl mt-4">
+                            Total: ₹{{calculateTotal(selectedTable.order)}}
+                        </div>
+                    </div>
+                    <div class="flex justify-between">
+                        <button @click="closeTableOrder" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                            Close
+                        </button>
+                        <button @click="generateBill" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700">
+                            Generate Bill
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bill Modal -->
+            <div v-if="showBill" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                <div class="bg-white p-6 rounded-lg max-w-md w-full">
+                    <div id="billContent">
+                        <h2 class="text-2xl font-bold text-center mb-4">Bill</h2>
+                        <div class="mb-4">
+                            <p>Table: {{selectedTable.id}}</p>
+                            <p>Date: {{new Date().toLocaleString()}}</p>
+                        </div>
+                        <div class="border-t border-b py-2 mb-4">
+                            <div v-for="item in selectedTable.order" :key="item.id" class="flex justify-between mb-2">
+                                <span>{{item.name}} x {{item.quantity}}</span>
+                                <span>₹{{item.price * item.quantity}}</span>
+                            </div>
+                        </div>
+                        <div class="text-xl font-bold mb-4">
+                            Total: ₹{{calculateTotal(selectedTable.order)}}
+                        </div>
+                        <div class="mb-4 no-print">
+                            <label class="block mb-2">Payment Method:</label>
+                            <select v-model="paymentMethod" class="w-full p-2 border rounded">
+                                <option value="cash">Cash</option>
+                                <option value="card">Card</option>
+                                <option value="upi">UPI</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-between no-print">
+                            <button @click="showBill = false" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                                Close
+                            </button>
+                            <button @click="printBill" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700">
+                                Print
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    currentView: 'tables',
+                    tables: [
+                        { id: 1, status: 'Available', order: [] },
+                        { id: 2, status: 'Available', order: [] },
+                        { id: 3, status: 'Available', order: [] }
+                    ],
+                    menu: [
+                        { id: 1, name: 'Coffee', price: 120 },
+                        { id: 2, name: 'Tea', price: 80 },
+                        { id: 3, name: 'Sandwich', price: 150 },
+                        { id: 4, name: 'Pasta', price: 200 }
+                    ],
+                    staff: [
+                        { id: 1, name: 'Alex Patel', role: 'Manager' },
+                        { id: 2, name: 'Mihir Pansuriya', role: 'Chef' },
+                        { id: 3, name: 'Nisarg Patel', role: 'Waiter' }
+                    ],
+                    selectedTable: null,
+                    showBill: false,
+                    paymentMethod: 'cash',
+                    showAddMenuItem: false,
+                    showAddStaff: false
+                }
+            },
+            methods: {
+                addTable() {
+                    const newId = this.tables.length + 1
+                    this.tables.push({
+                        id: newId,
+                        status: 'Available',
+                        order: []
+                    })
+                },
+                openTableOrder(table) {
+                    this.selectedTable = table
+                    if (table.status === 'Available') {
+                        table.status = 'Occupied'
+                    }
+                },
+                closeTableOrder() {
+                    this.selectedTable = null
+                },
+                addToOrder(item) {
+                    const existingItem = this.selectedTable.order.find(i => i.id === item.id)
+                    if (existingItem) {
+                        existingItem.quantity++
+                    } else {
+                        this.selectedTable.order.push({...item, quantity: 1})
+                    }
+                },
+                removeFromOrder(item) {
+                    const index = this.selectedTable.order.indexOf(item)
+                    if (index > -1) {
+                        this.selectedTable.order.splice(index, 1)
+                    }
+                },
+                calculateTotal(order) {
+                    return order.reduce((total, item) => total + (item.price * item.quantity), 0)
+                },
+                generateBill() {
+                    this.showBill = true
+                },
+                printBill() {
+                    window.print()
+                    this.showBill = false
+                    this.selectedTable.status = 'Available'
+                    this.selectedTable.order = []
+                    this.selectedTable = null
+                },
+                editMenuItem(item) {
+                    const newName = prompt('Enter new name:', item.name)
+                    const newPrice = prompt('Enter new price:', item.price)
+                    if (newName && newPrice) {
+                        item.name = newName
+                        item.price = parseFloat(newPrice)
+                    }
+                },
+                deleteMenuItem(item) {
+                    if (confirm('Are you sure you want to delete this item?')) {
+                        const index = this.menu.indexOf(item)
+                        if (index > -1) {
+                            this.menu.splice(index, 1)
+                        }
+                    }
+                },
+                editStaff(member) {
+                    const newName = prompt('Enter new name:', member.name)
+                    const newRole = prompt('Enter new role:', member.role)
+                    if (newName && newRole) {
+                        member.name = newName
+                        member.role = newRole
+                    }
+                },
+                deleteStaff(member) {
+                    if (confirm('Are you sure you want to delete this staff member?')) {
+                        const index = this.staff.indexOf(member)
+                        if (index > -1) {
+                            this.staff.splice(index, 1)
+                        }
+                    }
+                }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
